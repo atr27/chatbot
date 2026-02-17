@@ -1,7 +1,9 @@
+import { Message } from '../types';
+
 export function formatTimestamp(timestamp: string): string {
   const date = new Date(timestamp);
   const now = new Date();
-  
+
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMs / 3600000);
@@ -42,7 +44,7 @@ export function downloadJSON(data: any, filename: string) {
 
 export function generateSessionTitle(messages: Message[]): string {
   if (messages.length === 0) return 'Chat Baru';
-  
+
   const firstMessage = messages.find(m => m.role === 'user')?.content || '';
   const title = firstMessage.slice(0, 40);
   return title.length < firstMessage.length ? `${title}...` : title;

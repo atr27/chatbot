@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import DatabaseService from '../services/database';
-import GeminiService from '../services/gemini';
+import GroqService from '../services/groq';
 import { ChatRequest } from '../types';
 
 const router = Router();
@@ -9,17 +9,17 @@ const router = Router();
 // Inisialisasi layanan
 const db = new DatabaseService();
 
-// Inisialisasi lazy untuk layanan Gemini
-let gemini: GeminiService;
-const getGeminiService = () => {
-  if (!gemini) {
-    const apiKey = process.env.GEMINI_API_KEY;
+// Inisialisasi lazy untuk layanan Groq
+let groq: GroqService;
+const getGroqService = () => {
+  if (!groq) {
+    const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
-      throw new Error('GEMINI_API_KEY tidak ditemukan di environment variables');
+      throw new Error('GROQ_API_KEY tidak ditemukan di environment variables');
     }
-    gemini = new GeminiService(apiKey);
+    groq = new GroqService(apiKey);
   }
-  return gemini;
+  return groq;
 };
 
 // POST /api/chat - Kirim pesan ke Gemini
@@ -27,8 +27,13 @@ router.post('/chat', async (req: Request, res: Response) => {
   try {
     const { message, sessionId: providedSessionId } = req.body as ChatRequest;
 
+    // Validasi input
     if (!message || message.trim().length === 0) {
       return res.status(400).json({ error: 'Message tidak boleh kosong' });
+    }
+
+    if (message.length > 10000) {
+      return res.status(400).json({ error: 'Message terlalu panjang (maksimal 10000 karakter)' });
     }
 
     // Buat atau gunakan session ID yang ada
@@ -36,27 +41,48 @@ router.post('/chat', async (req: Request, res: Response) => {
     const timestamp = new Date().toISOString();
 
     // Ambil riwayat percakapan
-    const history = await db.getHistory(sessionId);
+    let history;
+    try {
+      history = await db.getHistory(sessionId);
+    } catch (dbError: any) {
+      console.error('Database error when getting history:', dbError);
+      return res.status(500).json({ error: 'Gagal mengambil riwayat percakapan' });
+    }
 
     // Simpan pesan pengguna
-    await db.saveMessage({
-      sessionId,
-      role: 'user',
-      content: message,
-      timestamp
-    });
+    try {
+      await db.saveMessage({
+        sessionId,
+        role: 'user',
+        content: message,
+        timestamp
+      });
+    } catch (dbError: any) {
+      console.error('Database error when saving user message:', dbError);
+      return res.status(500).json({ error: 'Gagal menyimpan pesan' });
+    }
 
-    // Dapatkan respons dari Gemini
-    const reply = await getGeminiService().chat(message, history);
+    // Dapatkan respons dari Groq
+    const reply = await getGroqService().chat(message, history);
+
+    // Validasi respons
+    if (!reply || reply.trim().length === 0) {
+      throw new Error('Respons dari AI kosong. Silakan coba lagi.');
+    }
 
     // Simpan respons asisten
     const assistantTimestamp = new Date().toISOString();
-    await db.saveMessage({
-      sessionId,
-      role: 'assistant',
-      content: reply,
-      timestamp: assistantTimestamp
-    });
+    try {
+      await db.saveMessage({
+        sessionId,
+        role: 'assistant',
+        content: reply,
+        timestamp: assistantTimestamp
+      });
+    } catch (dbError: any) {
+      console.error('Database error when saving assistant message:', dbError);
+      // Jangan gagalkan request jika save gagal - respons sudah diberikan
+    }
 
     res.json({
       reply,
@@ -65,8 +91,34 @@ router.post('/chat', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Chat error:', error);
-    res.status(500).json({ 
-      error: error.message || 'Terjadi kesalahan saat memproses pesan' 
+
+    // Tangani jenis error spesifik dengan pesan yang lebih informatif
+    let errorMessage = 'Terjadi kesalahan saat memproses pesan';
+    let statusCode = 500;
+
+    if (error.message) {
+      // Error terkait API key
+      if (error.message.includes('API Key') || error.message.includes('API key')) {
+        errorMessage = 'Konfigurasi API tidak valid. Silakan periksa GROQ_API_KEY di file .env';
+        statusCode = 500;
+      }
+      // Error terkait kuota
+      else if (error.message.includes('Kuota') || error.message.includes('quota') || error.message.includes('rate limit')) {
+        errorMessage = 'Kuota API terlampaui. Silakan coba lagi dalam beberapa saat.';
+        statusCode = 429;
+      }
+      // Error terkait jaringan
+      else if (error.message.includes('network') || error.message.includes('fetch') || error.message.includes('ECONNREFUSED')) {
+        errorMessage = 'Gagal terhubung ke server AI. Silakan periksa koneksi internet Anda.';
+        statusCode = 503;
+      }
+      else {
+        errorMessage = error.message;
+      }
+    }
+
+    res.status(statusCode).json({
+      error: errorMessage
     });
   }
 });
@@ -76,7 +128,7 @@ router.get('/history/:sessionId', async (req: Request, res: Response) => {
   try {
     const { sessionId } = req.params;
     const history = await db.getHistory(sessionId);
-    
+
     res.json({
       sessionId,
       messages: history
@@ -103,7 +155,7 @@ router.delete('/history/:sessionId', async (req: Request, res: Response) => {
   try {
     const { sessionId } = req.params;
     const success = await db.deleteSession(sessionId);
-    
+
     if (success) {
       res.json({ message: 'Sesi berhasil dihapus' });
     } else {
@@ -120,7 +172,7 @@ router.post('/export', async (req: Request, res: Response) => {
   try {
     const { sessionId } = req.body;
     const history = await db.exportHistory(sessionId);
-    
+
     res.json({
       data: history,
       exportedAt: new Date().toISOString()
@@ -135,13 +187,13 @@ router.post('/export', async (req: Request, res: Response) => {
 router.post('/import', async (req: Request, res: Response) => {
   try {
     const { data } = req.body;
-    
+
     if (!data || !Array.isArray(data)) {
       return res.status(400).json({ error: 'Format data tidak valid' });
     }
 
     const success = await db.importHistory(data);
-    
+
     if (success) {
       res.json({ message: 'Riwayat berhasil diimpor' });
     } else {

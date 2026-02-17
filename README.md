@@ -1,11 +1,11 @@
-# Quick Start Guide - Gemini Chatbot
+# Quick Start Guide - Groq Chatbot
 
-Panduan cepat untuk menjalankan aplikasi chatbot Gemini AI.
+Panduan cepat untuk menjalankan aplikasi chatbot dengan Groq AI (Free Unlimited).
 
 ### 1. Get API Key (2 menit)
 
-1. Buka https://makersuite.google.com/app/apikey
-2. Login dengan Google account
+1. Buka https://console.groq.com/keys
+2. Login atau Sign up
 3. Klik "Create API Key"
 4. Copy API key
 
@@ -21,11 +21,11 @@ npm install
 # Create .env file
 cat > .env << EOF
 PORT=3001
-GEMINI_API_KEY=your_api_key_here
+GROQ_API_KEY=your_groq_api_key_here
 NODE_ENV=development
 EOF
 
-# IMPORTANT: Ganti 'your_api_key_here' dengan API key Anda!
+# IMPORTANT: Ganti 'your_groq_api_key_here' dengan API key Anda!
 
 # Start backend
 npm run dev
@@ -58,11 +58,11 @@ Frontend akan running di `http://localhost:5173`
 1. Buka browser: `http://localhost:5173`
 2. Ketik pesan di chat input
 3. Tekan Enter atau klik Send
-4. Lihat response dari Gemini AI
+4. Lihat response dari Groq AI
 
-### API Key Error (403)
+### API Key Error
 - Check API key di `backend/.env`
-- Verify API key valid di: https://makersuite.google.com/app/apikey
+- Verify API key valid di: https://console.groq.com/keys
 
 ## Features to Try
 

@@ -50,7 +50,7 @@ app.get('/health', (req: Request, res: Response) => {
   res.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    service: 'Gemini Chatbot API'
+    service: 'Groq Chatbot API'
   });
 });
 
@@ -71,11 +71,21 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   });
 });
 
+// Validasi API key saat startup
+const apiKey = process.env.GROQ_API_KEY;
+if (!apiKey || apiKey === 'your-groq-api-key-here') {
+  console.warn('⚠️  WARNING: GROQ_API_KEY tidak ditemukan atau belum dikonfigurasi!');
+  console.warn('   Chat akan gagal jika API key tidak dikonfigurasi.');
+  console.warn('   Silakan buat file .env dengan GROQ_API_KEY yang valid.');
+} else {
+  console.log('✅ GROQ API Key configured successfully');
+}
+
 // Jalankan server
 app.listen(PORT, () => {
   console.log(`Server berjalan di http://localhost:${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV}`);
-  console.log(`API Key configured: ${process.env.GEMINI_API_KEY ? 'Yes' : 'No'}`);
+  console.log(`API Key configured: ${process.env.GROQ_API_KEY ? 'Yes' : 'No'}`);
 });
 
 // Penutupan yang aman

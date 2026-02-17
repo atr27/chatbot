@@ -235,7 +235,7 @@ function App() {
                   <MessageSquare className="w-10 h-10 text-blue-600" />
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                  Selamat Datang di Gemini Chatbot
+                  Selamat Datang di Groq Chatbot
                 </h2>
                 <p className="text-gray-600 max-w-md">
                   Mulai percakapan dengan mengirim pesan di bawah. 

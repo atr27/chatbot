@@ -37,7 +37,7 @@ const Header: React.FC<HeaderProps> = ({
             </div>
             <div>
               <h1 className="text-xl font-bold text-gray-900">Chatbot</h1>
-              <p className="text-xs text-gray-500">Powered by Gemini AI</p>
+              <p className="text-xs text-gray-500">Powered by Groq AI</p>
             </div>
           </div>
         </div>
