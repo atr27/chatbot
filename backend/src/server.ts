@@ -37,7 +37,26 @@ const chatLimiter = rateLimit({
 });
 
 // Middleware
-app.use(cors());
+// Konfigurasi CORS
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://frontend-chatbot-sooty.vercel.app',
+  'https://api-chatbot.ahmadtaufikramdani.my.id'
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
+  credentials: true
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -47,8 +66,8 @@ app.use('/api/chat', chatLimiter);
 
 // Pemeriksaan kesehatan
 app.get('/health', (req: Request, res: Response) => {
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     timestamp: new Date().toISOString(),
     service: 'Groq Chatbot API'
   });
@@ -65,7 +84,7 @@ app.use((req: Request, res: Response) => {
 // Penanganan error
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error('Server error:', err);
-  res.status(500).json({ 
+  res.status(500).json({
     error: 'Terjadi kesalahan internal server',
     message: process.env.NODE_ENV === 'development' ? err.message : undefined
   });
